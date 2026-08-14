@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<title>Acceso de emergencia</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230F1210'/%3E%3Ccircle cx='32' cy='32' r='18' fill='none' stroke='%23C6EE4B' stroke-width='5'/%3E%3Cpath d='M32 22 v11 l7 5' fill='none' stroke='%230F1210' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --ink:#0F1210;
+    --case:#171B17;
+    --edge:#2A312A;
+    --paper:#E9E7DD;
+    --muted:#8B9187;
+    --hivis:#C6EE4B;
+    --alarm:#E8663D;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{min-height:100%}
+  body{
+    background:var(--ink); color:var(--paper); font-family:var(--sans);
+    display:flex; align-items:center; justify-content:center;
+    padding:24px 18px; -webkit-font-smoothing:antialiased;
+  }
+  .case{
+    width:100%; max-width:440px; background:var(--case);
+    border:1px solid var(--edge); border-radius:4px; overflow:hidden;
+  }
+  /* Banda de peligro: señal de "esto es una herramienta de emergencia" */
+  .band{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    padding:11px 16px;
+    background:repeating-linear-gradient(115deg,var(--hivis) 0 14px,#0F1210 14px 28px);
+  }
+  .band b{
+    background:var(--case); color:var(--hivis);
+    font-family:var(--mono); font-size:10px; font-weight:600;
+    letter-spacing:.22em; text-transform:uppercase; padding:4px 9px; border-radius:2px;
+  }
+  .body{padding:22px 20px 24px}
+  h1{font-size:17px; font-weight:600; letter-spacing:-.01em; margin-bottom:6px}
+  .sub{color:var(--muted); font-size:13px; line-height:1.5; margin-bottom:20px}
+
+  label{
+    display:block; font-family:var(--mono); font-size:10px; letter-spacing:.18em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:7px;
+  }
+  input,textarea{
+    width:100%; padding:12px 13px; background:var(--ink); color:var(--paper);
+    border:1px solid var(--edge); border-radius:3px;
+    font-family:var(--mono); font-size:14px;
+  }
+  textarea{min-height:110px; resize:vertical; line-height:1.7}
+  input:focus,textarea:focus{outline:none; border-color:var(--hivis)}
+  .field{margin-bottom:16px}
+
+  button{
+    width:100%; padding:13px; cursor:pointer;
+    font-family:var(--mono); font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+    background:var(--hivis); color:var(--ink); border:0; border-radius:3px; font-weight:600;
+  }
+  button:hover{filter:brightness(1.08)}
+  button:disabled{opacity:.5; cursor:default}
+  button.ghost{background:transparent; color:var(--paper); border:1px solid var(--edge)}
+  button.ghost:hover{border-color:var(--hivis); color:var(--hivis); filter:none}
+  .row{display:flex; gap:8px; margin-top:10px}
+
+  .err{color:var(--alarm); font-size:13px; margin-top:12px; min-height:18px}
+  .note{color:var(--muted); font-size:12px; line-height:1.6; margin-top:14px}
+
+  /* --- Códigos --- */
+  .code{
+    display:flex; align-items:center; gap:14px;
+    padding:15px 0; border-top:1px solid var(--edge);
+  }
+  .code:first-child{border-top:0}
+  .code .who{flex:1; min-width:0}
+  .code .who span{
+    display:block; font-family:var(--mono); font-size:10px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:4px;
+  }
+  .code .digits{
+    font-family:var(--mono); font-size:29px; font-weight:600; letter-spacing:.09em;
+    color:var(--hivis); cursor:pointer;
+  }
+  .code .digits:active{opacity:.6}
+  .ring{width:34px; height:34px; flex:0 0 34px; transform:rotate(-90deg)}
+  .ring circle{fill:none; stroke-width:3}
+  .ring .bg{stroke:var(--edge)}
+  .ring .fg{stroke:var(--hivis); stroke-linecap:round; transition:stroke-dashoffset 1s linear}
+  .ring.low .fg{stroke:var(--alarm)}
+
+  .out{
+    margin-top:16px; padding:12px; background:var(--ink);
+    border:1px solid var(--edge); border-radius:3px;
+    font-family:var(--mono); font-size:11px; line-height:1.6;
+    word-break:break-all; max-height:180px; overflow:auto; color:var(--muted);
+  }
+  .out b{color:var(--hivis); font-weight:400}
+  [hidden]{display:none !important}
+  @media (prefers-reduced-motion: reduce){.ring .fg{transition:none}}
+</style>
+</head>
+<body>
+<div class="case">
+  <div class="band"><b>Acceso de emergencia</b></div>
+  <div class="body">
+
+    <!-- ============ MODO SELLADO ============ -->
+    <section id="locked" hidden>
+      <h1>Introduce la contraseña</h1>
+      <p class="sub">La segunda contraseña, la que solo está en tu cabeza. No es la maestra de la bóveda.</p>
+      <div class="field">
+        <label for="pw">Contraseña</label>
+        <input type="password" id="pw" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+      <button id="unlock">Abrir</button>
+      <p class="err" id="err1"></p>
+    </section>
+
+    <!-- ============ CÓDIGOS ============ -->
+    <section id="codes" hidden>
+      <div id="codelist"></div>
+      <p class="note">Toca un código para copiarlo. Se renueva cada 30 segundos.
+        Si no coincide, revisa la hora del dispositivo: los códigos se derivan del reloj.</p>
+    </section>
+
+    <!-- ============ MODO CONFIGURACIÓN ============ -->
+    <section id="setup" hidden>
+      <h1>Configuración</h1>
+      <p class="sub">Esta página aún no está sellada. Introduce las semillas, comprueba que
+        generan los códigos correctos, y cifra.</p>
+
+      <div class="field">
+        <label for="seeds">Semillas — una por línea: Nombre = SEMILLA</label>
+        <textarea id="seeds" spellcheck="false" autocapitalize="off"
+          placeholder="Código = JBSWY3DPEHPK3PXP&#10;Migadu = KRSXG5CTMVRXEZLU"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="pw2">Contraseña con la que se cifrará</label>
+        <input type="password" id="pw2" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+
+      <div class="field">
+        <label for="pw3">Repite la contraseña</label>
+        <input type="password" id="pw3" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+
+      <button class="ghost" id="test">Comprobar semillas</button>
+      <div class="row"><button id="seal">Cifrar</button></div>
+      <p class="err" id="err2"></p>
+      <div class="out" id="out" hidden></div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+// ===========================================================================
+// PAYLOAD: aquí va la cadena cifrada que devuelve el modo configuración.
+// Mientras esté vacío, la página arranca en modo configuración.
+// ===========================================================================
+const PAYLOAD = "SCdVdGV9VFNkd8wXc0+nH7bqnkcR/h7V0gqd9g8/239N3yrESkUm/n1Q9KoWBhnX3ow5CZUfrEinIf1pmrKyWT7EYp9nKSMOa/57+qiXx7BgBYIiYH8=";
+const $ = (s) => document.querySelector(s);
+const enc = new TextEncoder();
+
+// --- Base32 (RFC 4648) → bytes. Es como se escriben las semillas TOTP. -----
+function base32ToBytes(s) {
+  const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  s = s.toUpperCase().replace(/=+$/, "").replace(/\s+/g, "");
+  let bits = 0, value = 0;
+  const out = [];
+  for (const c of s) {
+    const idx = A.indexOf(c);
+    if (idx === -1) throw new Error("Carácter inválido en la semilla: " + c);
+    value = (value << 5) | idx;
+    bits += 5;
+    if (bits >= 8) {
+      out.push((value >>> (bits - 8)) & 0xff);
+      bits -= 8;
+    }
+  }
+  return new Uint8Array(out);
+}
+
+// --- TOTP (RFC 6238): HMAC-SHA1 sobre el contador de intervalos de 30 s ----
+async function totp(secretB32, step = 30, digits = 6) {
+  const key = await crypto.subtle.importKey(
+    "raw", base32ToBytes(secretB32),
+    { name: "HMAC", hash: "SHA-1" }, false, ["sign"]
+  );
+  const counter = Math.floor(Date.now() / 1000 / step);
+
+  // El contador va como entero de 64 bits big-endian.
+  const buf = new ArrayBuffer(8);
+  const view = new DataView(buf);
+  view.setUint32(0, Math.floor(counter / 2 ** 32));
+  view.setUint32(4, counter >>> 0);
+
+  const sig = new Uint8Array(await crypto.subtle.sign("HMAC", key, buf));
+  // Truncamiento dinámico: los 4 bits bajos del último byte dicen dónde leer.
+  const offset = sig[sig.length - 1] & 0x0f;
+  const bin =
+    ((sig[offset] & 0x7f) << 24) |
+    (sig[offset + 1] << 16) |
+    (sig[offset + 2] << 8) |
+    sig[offset + 3];
+  return String(bin % 10 ** digits).padStart(digits, "0");
+}
+
+// --- Derivación de clave: PBKDF2-SHA256, 600.000 iteraciones --------------
+// Muy por encima de lo que recomienda OWASP. Tarda un segundo o dos en el
+// móvil, y eso es exactamente lo que encarece un ataque por fuerza bruta.
+const ITER = 600000;
+
+async function deriveKey(password, salt) {
+  const base = await crypto.subtle.importKey(
+    "raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: ITER, hash: "SHA-256" },
+    base,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+function b64(bytes) {
+  return btoa(String.fromCharCode(...new Uint8Array(bytes)));
+}
+function unb64(str) {
+  return Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
+}
+
+async function encryptSeeds(text, password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveKey(password, salt);
+  const ct = new Uint8Array(await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv }, key, enc.encode(text)
+  ));
+
+  // Todo en un único bloque: 16 bytes de sal + 12 de IV + el cifrado, y una
+  // sola cadena base64. Sin separadores que se puedan perder al copiar y
+  // pegar: si falta un carácter, base64 falla y se ve enseguida.
+  const packed = new Uint8Array(salt.length + iv.length + ct.length);
+  packed.set(salt, 0);
+  packed.set(iv, salt.length);
+  packed.set(ct, salt.length + iv.length);
+  return b64(packed);
+}
+
+async function decryptSeeds(payload, password) {
+  const packed = unb64(payload.replace(/\s+/g, ""));
+  if (packed.length < 45) throw new Error("El PAYLOAD está incompleto.");
+  const salt = packed.slice(0, 16);
+  const iv = packed.slice(16, 28);
+  const ct = packed.slice(28);
+  const key = await deriveKey(password, salt);
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct);
+  return new TextDecoder().decode(pt);
+}
+
+// --- Parseo de la lista de semillas ---------------------------------------
+function parseSeeds(text) {
+  const items = [];
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (!t) continue;
+    const eq = t.indexOf("=");
+    if (eq === -1) throw new Error("Falta el '=' en: " + t);
+    const name = t.slice(0, eq).trim();
+    const seed = t.slice(eq + 1).trim();
+    if (!name || !seed) throw new Error("Línea incompleta: " + t);
+    base32ToBytes(seed); // valida ya, no cuando haga falta de verdad
+    items.push({ name, seed });
+  }
+  if (!items.length) throw new Error("No hay ninguna semilla.");
+  return items;
+}
+
+// --- Pintado de los códigos ------------------------------------------------
+let timer = null;
+
+function showCodes(items) {
+  $("#locked").hidden = true;
+  $("#setup").hidden = true;
+  $("#codes").hidden = false;
+
+  const list = $("#codelist");
+  list.innerHTML = "";
+
+  for (const item of items) {
+    const el = document.createElement("div");
+    el.className = "code";
+    el.innerHTML = `
+      <div class="who">
+        <span></span>
+        <div class="digits">------</div>
+      </div>
+      <svg class="ring" viewBox="0 0 36 36">
+        <circle class="bg" cx="18" cy="18" r="15"></circle>
+        <circle class="fg" cx="18" cy="18" r="15"
+                stroke-dasharray="94.25" stroke-dashoffset="0"></circle>
+      </svg>`;
+    el.querySelector("span").textContent = item.name;
+    el.querySelector(".digits").onclick = () => {
+      navigator.clipboard?.writeText(el.querySelector(".digits").textContent);
+    };
+    list.appendChild(el);
+    item.el = el;
+  }
+
+  const tick = async () => {
+    const secs = 30 - (Math.floor(Date.now() / 1000) % 30);
+    for (const item of items) {
+      try {
+        item.el.querySelector(".digits").textContent = await totp(item.seed);
+      } catch {
+        item.el.querySelector(".digits").textContent = "error";
+      }
+      const ring = item.el.querySelector(".ring");
+      ring.classList.toggle("low", secs <= 5);
+      ring.querySelector(".fg").style.strokeDashoffset = 94.25 * (1 - secs / 30);
+    }
+  };
+
+  tick();
+  clearInterval(timer);
+  timer = setInterval(tick, 1000);
+}
+
+// --- Modo sellado ----------------------------------------------------------
+$("#unlock").onclick = async () => {
+  const btn = $("#unlock");
+  const pw = $("#pw").value;
+  if (!pw) return;
+  btn.disabled = true;
+  btn.textContent = "Descifrando…";
+  $("#err1").textContent = "";
+  try {
+    const text = await decryptSeeds(PAYLOAD, pw);
+    showCodes(parseSeeds(text));
+  } catch {
+    $("#err1").textContent = "Contraseña incorrecta.";
+    $("#pw").value = "";
+    $("#pw").focus();
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Abrir";
+  }
+};
+$("#pw").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#unlock").click(); });
+
+// --- Modo configuración ----------------------------------------------------
+$("#test").onclick = () => {
+  $("#err2").textContent = "";
+  try {
+    showCodes(parseSeeds($("#seeds").value));
+    // Volvemos a mostrar el formulario debajo para poder seguir configurando.
+    $("#setup").hidden = false;
+  } catch (e) {
+    $("#err2").textContent = e.message;
+  }
+};
+
+$("#seal").onclick = async () => {
+  const btn = $("#seal");
+  $("#err2").textContent = "";
+  $("#out").hidden = true;
+
+  const pw = $("#pw2").value;
+  if (pw !== $("#pw3").value) {
+    $("#err2").textContent = "Las dos contraseñas no coinciden.";
+    return;
+  }
+  if (pw.length < 12) {
+    $("#err2").textContent = "Usa al menos 12 caracteres. Esta contraseña es lo único que protege las semillas.";
+    return;
+  }
+  try {
+    const items = parseSeeds($("#seeds").value);
+    btn.disabled = true;
+    btn.textContent = "Cifrando…";
+    const text = items.map((i) => `${i.name} = ${i.seed}`).join("\n");
+    const payload = await encryptSeeds(text, pw);
+    $("#out").hidden = false;
+    $("#out").innerHTML =
+      'Sustituye la línea del PAYLOAD en el archivo por esta:<br><br><b>const PAYLOAD = "' +
+      payload + '";</b>';
+  } catch (e) {
+    $("#err2").textContent = e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Cifrar";
+  }
+};
+
+// --- Arranque --------------------------------------------------------------
+if (!window.crypto?.subtle) {
+  document.querySelector(".body").innerHTML =
+    '<h1>Contexto no seguro</h1><p class="sub">Esta página necesita HTTPS o localhost ' +
+    'para poder usar la criptografía del navegador. Abrirla con doble clic no funciona.</p>';
+} else if (PAYLOAD) {
+  $("#locked").hidden = false;
+  $("#pw").focus();
+} else {
+  $("#setup").hidden = false;
+}
+</script>
+</body>
+</html>
